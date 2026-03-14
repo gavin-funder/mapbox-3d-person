@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Model Test (No Mapbox)</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: #1a1a2e; overflow: hidden; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            background: rgba(0,0,0,0.6);
+            padding: 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Loading Soldier.glb...</div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2, 5);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1, 0);
+        controls.update();
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(3, 5, 3);
+        scene.add(dirLight);
+
+        // Ground grid
+        scene.add(new THREE.GridHelper(10, 10, 0x444444, 0x222222));
+
+        // Red circle on the ground
+        const circleGeo = new THREE.RingGeometry(0.4, 0.5, 32);
+        const circleMat = new THREE.MeshBasicMaterial({ color: 0xff3333, side: THREE.DoubleSide });
+        const circle = new THREE.Mesh(circleGeo, circleMat);
+        circle.rotation.x = -Math.PI / 2;
+        circle.position.y = 0.01;
+        scene.add(circle);
+
+        // Load model
+        const info = document.getElementById('info');
+        const loader = new GLTFLoader();
+        let mixer;
+
+        loader.load(
+            'https://threejs.org/examples/models/gltf/Soldier.glb',
+            (gltf) => {
+                const model = gltf.scene;
+                scene.add(model);
+
+                mixer = new THREE.AnimationMixer(model);
+                gltf.animations.forEach((clip) => {
+                    info.textContent += `\nAnimation: ${clip.name}`;
+                });
+
+                if (gltf.animations.length > 0) {
+                    mixer.clipAction(gltf.animations[0]).play();
+                }
+
+                info.textContent = `Model loaded! Animations: ${gltf.animations.map(a => a.name).join(', ')}`;
+            },
+            (p) => { info.textContent = `Loading: ${(p.loaded / 1024).toFixed(0)} KB`; },
+            (err) => { info.textContent = `ERROR: ${err.message}`; }
+        );
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mixer) mixer.update(clock.getDelta());
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
